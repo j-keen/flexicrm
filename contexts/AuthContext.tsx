@@ -109,15 +109,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('[Auth] Processing auth state change:', event);
 
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          setLoading(true);
           setUser(session?.user ?? null);
           if (session?.user) {
             await loadUserData(session.user.id);
           }
+          setLoading(false);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setProfile(null);
           setPermissions([]);
           setError(null);
+          setLoading(false);
         } else if (event === 'TOKEN_REFRESHED') {
           setUser(session?.user ?? null);
         }
@@ -139,13 +142,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       password,
     });
 
-    setLoading(false);
-
     if (signInError) {
+      setLoading(false);
       setError(signInError.message);
       return { error: signInError.message };
     }
 
+    // Don't set loading to false here; let onAuthStateChange do it after loading profile
     return { error: null };
   };
 
