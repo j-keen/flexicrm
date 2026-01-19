@@ -596,6 +596,60 @@ CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
+
+-- =============================================================================
+-- SECTION 13: LANDING PAGES & RECEPTION SYSTEM
+-- =============================================================================
+
+-- Landing Pages Table
+CREATE TABLE IF NOT EXISTS landing_pages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_by UUID REFERENCES user_profiles(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(slug)
+);
+
+-- Add Index for slug lookup
+CREATE INDEX IF NOT EXISTS idx_landing_pages_slug ON landing_pages(slug);
+CREATE INDEX IF NOT EXISTS idx_landing_pages_org ON landing_pages(organization_id);
+
+-- Add source_landing_page_id to customers
+DO $$ BEGIN
+    ALTER TABLE customers
+        ADD COLUMN source_landing_page_id UUID REFERENCES landing_pages(id) ON DELETE SET NULL;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
+
+-- Enable RLS
+ALTER TABLE landing_pages ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for Landing Pages
+
+-- Read: Public access for specific columns (needed for public landing page)
+-- BUT Supabase Auth usually blocks anon unless explicitly allowed. 
+-- We'll allow public read access to 'slug' and 'name' and 'id' for everyone (anon included)
+CREATE POLICY landing_pages_read_public ON landing_pages
+    FOR SELECT USING (TRUE); 
+
+-- Manage: Only organization members with permission
+CREATE POLICY landing_pages_manage ON landing_pages
+    FOR ALL USING (
+        organization_id = get_user_org(auth.uid())
+        AND user_has_permission(auth.uid(), 'admin.settings.manage')
+    );
+
+-- Trigger for timestamps
+DROP TRIGGER IF EXISTS trg_landing_pages_updated_at ON landing_pages;
+CREATE TRIGGER trg_landing_pages_updated_at
+    BEFORE UPDATE ON landing_pages
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
 -- =============================================================================
 -- DONE!
 -- 스키마 설치 완료. 이제 Supabase Dashboard에서:
