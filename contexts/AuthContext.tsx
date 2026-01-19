@@ -108,13 +108,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Only process actual user actions (sign in, sign out, token refresh)
         console.log('[Auth] Processing auth state change:', event);
 
-        if (event === 'SIGNED_OUT') {
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            await loadUserData(session.user.id);
+          }
+        } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setProfile(null);
           setPermissions([]);
           setError(null);
         } else if (event === 'TOKEN_REFRESHED') {
-          // Token refreshed, just update the user
           setUser(session?.user ?? null);
         }
       }
