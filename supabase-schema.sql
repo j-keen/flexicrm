@@ -608,6 +608,15 @@ CREATE TABLE IF NOT EXISTS landing_pages (
     name TEXT NOT NULL,
     slug TEXT NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
+    content JSONB DEFAULT '{
+        "title": "Welcome",
+        "description": "Please enter your contact number below.",
+        "inputLabel": "Phone Number",
+        "inputPlaceholder": "010-1234-5678",
+        "buttonText": "Submit",
+        "successTitle": "Thank you!",
+        "successMessage": "Your information has been registered successfully."
+    }'::jsonb,
     created_by UUID REFERENCES user_profiles(id),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),

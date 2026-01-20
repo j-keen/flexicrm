@@ -6,7 +6,7 @@
 export type FieldType = 'text' | 'number' | 'select' | 'date' | 'currency' | 'email';
 
 // Modal Sizes
-export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | 'full';
+export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | '5xl' | '6xl';
 
 // User Roles (3-tier hierarchy)
 export type UserRole = 'ceo' | 'team_lead' | 'staff';
