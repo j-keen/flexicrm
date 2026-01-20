@@ -194,3 +194,31 @@ export const PERMISSIONS = {
 } as const;
 
 export type PermissionId = typeof PERMISSIONS[keyof typeof PERMISSIONS];
+
+// Permission Override for user-specific permissions
+export interface PermissionOverride {
+  user_id: string;
+  permission_id: string;
+  granted: boolean;
+  granted_by: string | null;
+  created_at: string;
+}
+
+// Input for creating a new member
+export interface CreateMemberInput {
+  username: string;        // Will be converted to {username}@crm.team
+  password: string;        // Will be converted to {password}##crm
+  fullName: string;
+  role: UserRole;
+  teamId?: string;
+}
+
+// SQL generation result for member creation
+export interface MemberCreationSQL {
+  sql: string;
+  credentials: {
+    username: string;
+    password: string;
+    email: string;        // Actual email stored: {username}@crm.team
+  };
+}

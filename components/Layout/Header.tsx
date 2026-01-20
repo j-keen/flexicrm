@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database, Users, Settings, LogOut, Radio } from 'lucide-react';
+import { Database, Users, Settings, LogOut, Radio, UsersRound } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -44,8 +44,8 @@ export const Header: React.FC<HeaderProps> = ({ canAccessSettings }) => {
                     <Link
                         to="/"
                         className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/')
-                                ? 'bg-brand-50 text-brand-700'
-                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            ? 'bg-brand-50 text-brand-700'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                             }`}
                     >
                         <Users size={18} />
@@ -55,8 +55,8 @@ export const Header: React.FC<HeaderProps> = ({ canAccessSettings }) => {
                     <Link
                         to="/reception"
                         className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/reception')
-                                ? 'bg-brand-50 text-brand-700'
-                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            ? 'bg-brand-50 text-brand-700'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                             }`}
                     >
                         <Radio size={18} />
@@ -65,10 +65,23 @@ export const Header: React.FC<HeaderProps> = ({ canAccessSettings }) => {
 
                     {canAccessSettings && (
                         <Link
+                            to="/team"
+                            className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/team')
+                                ? 'bg-brand-50 text-brand-700'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                }`}
+                        >
+                            <UsersRound size={18} />
+                            <span>Team</span>
+                        </Link>
+                    )}
+
+                    {canAccessSettings && (
+                        <Link
                             to="/settings"
                             className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/settings')
-                                    ? 'bg-brand-50 text-brand-700'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                ? 'bg-brand-50 text-brand-700'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                 }`}
                         >
                             <Settings size={18} />

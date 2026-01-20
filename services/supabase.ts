@@ -9,6 +9,10 @@ import type {
   FieldDefinition,
   CustomerRecord,
   DependencyRule,
+  PermissionOverride,
+  CreateMemberInput,
+  MemberCreationSQL,
+  UserRole,
 } from '../types';
 
 // ============================================================================
@@ -638,3 +642,272 @@ export async function inviteUser(
 
   return { success: true };
 }
+
+// ============================================================================
+// Team Management Functions
+// ============================================================================
+
+export async function createTeam(
+  name: string,
+  leadId?: string
+): Promise<Team | null> {
+  const profile = await getCurrentUserProfile();
+  if (!profile) return null;
+
+  const result = await restPost<Team>('teams', {
+    organization_id: profile.organization_id,
+    name,
+    lead_id: leadId || null,
+    settings: {},
+  });
+
+  return result;
+}
+
+export async function updateTeam(
+  teamId: string,
+  data: { name?: string; lead_id?: string | null }
+): Promise<Team | null> {
+  const result = await restPatch<Team>('teams', `id=eq.${teamId}`, data);
+  return result;
+}
+
+export async function deleteTeam(teamId: string): Promise<boolean> {
+  return restDelete('teams', `id=eq.${teamId}`);
+}
+
+// ============================================================================
+// Member Management Functions
+// ============================================================================
+
+export async function fetchMembers(): Promise<UserProfile[]> {
+  const data = await restGet<UserProfile>('user_profiles', 'select=*&order=full_name');
+  return data;
+}
+
+export async function updateMember(
+  userId: string,
+  data: { full_name?: string; role?: UserRole; team_id?: string | null; is_active?: boolean }
+): Promise<UserProfile | null> {
+  const result = await restPatch<UserProfile>('user_profiles', `id=eq.${userId}`, data);
+  return result;
+}
+
+export async function updateMemberTeam(
+  userId: string,
+  teamId: string | null
+): Promise<boolean> {
+  const result = await restPatch<UserProfile>('user_profiles', `id=eq.${userId}`, {
+    team_id: teamId,
+  });
+  return result !== null;
+}
+
+export async function deactivateMember(userId: string): Promise<boolean> {
+  const result = await restPatch<UserProfile>('user_profiles', `id=eq.${userId}`, {
+    is_active: false,
+  });
+  return result !== null;
+}
+
+export async function activateMember(userId: string): Promise<boolean> {
+  const result = await restPatch<UserProfile>('user_profiles', `id=eq.${userId}`, {
+    is_active: true,
+  });
+  return result !== null;
+}
+
+// ============================================================================
+// Permission Override Functions
+// ============================================================================
+
+
+export async function getPermissionOverrides(userId: string): Promise<PermissionOverride[]> {
+  const data = await restGet<PermissionOverride>(
+    'user_permission_overrides',
+    `user_id=eq.${userId}&select=*`
+  );
+  return data;
+}
+
+export async function setPermissionOverride(
+  userId: string,
+  permissionId: string,
+  granted: boolean
+): Promise<boolean> {
+  const profile = await getCurrentUserProfile();
+  if (!profile) return false;
+
+  // Upsert: try to update first, if no rows affected, insert
+  const existing = await restGet<PermissionOverride>(
+    'user_permission_overrides',
+    `user_id=eq.${userId}&permission_id=eq.${permissionId}`
+  );
+
+  if (existing.length > 0) {
+    const result = await restPatch<PermissionOverride>(
+      'user_permission_overrides',
+      `user_id=eq.${userId}&permission_id=eq.${permissionId}`,
+      { granted }
+    );
+    return result !== null;
+  } else {
+    const result = await restPost<PermissionOverride>('user_permission_overrides', {
+      user_id: userId,
+      permission_id: permissionId,
+      granted,
+      granted_by: profile.id,
+    });
+    return result !== null;
+  }
+}
+
+export async function removePermissionOverride(
+  userId: string,
+  permissionId: string
+): Promise<boolean> {
+  return restDelete(
+    'user_permission_overrides',
+    `user_id=eq.${userId}&permission_id=eq.${permissionId}`
+  );
+}
+
+// ============================================================================
+// SQL Generation for Member Account Creation
+// ============================================================================
+
+/**
+ * Generate SQL script for creating a new member account.
+ * This SQL should be run in Supabase Dashboard > SQL Editor.
+ * 
+ * Account format:
+ * - Email: {username}@crm.team
+ * - Password: {password}##crm (stored with bcrypt)
+ */
+export async function generateMemberCreationSQL(
+  input: CreateMemberInput
+): Promise<MemberCreationSQL | null> {
+  const profile = await getCurrentUserProfile();
+  if (!profile) return null;
+
+  const email = `${input.username.toLowerCase().trim()}@crm.team`;
+  const actualPassword = `${input.password}##crm`;
+  const uuid = crypto.randomUUID();
+
+  const sql = `-- =============================================================================
+-- 새 멤버 계정 생성: ${input.fullName}
+-- 로그인: ${input.username} / ${input.password}
+-- =============================================================================
+
+-- 1. Auth 사용자 생성
+INSERT INTO auth.users (
+    id,
+    instance_id,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    created_at,
+    updated_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    is_super_admin,
+    role,
+    aud,
+    confirmation_token
+)
+VALUES (
+    '${uuid}',
+    '00000000-0000-0000-0000-000000000000',
+    '${email}',
+    crypt('${actualPassword}', gen_salt('bf')),
+    NOW(),
+    NOW(),
+    NOW(),
+    '{"provider": "email", "providers": ["email"]}',
+    '{"full_name": "${input.fullName}"}',
+    FALSE,
+    'authenticated',
+    'authenticated',
+    ''
+)
+ON CONFLICT (id) DO UPDATE SET
+    encrypted_password = crypt('${actualPassword}', gen_salt('bf')),
+    updated_at = NOW();
+
+-- 2. Auth identities 생성
+INSERT INTO auth.identities (
+    id,
+    user_id,
+    identity_data,
+    provider,
+    provider_id,
+    last_sign_in_at,
+    created_at,
+    updated_at
+)
+VALUES (
+    '${uuid}',
+    '${uuid}',
+    '{"sub": "${uuid}", "email": "${email}"}',
+    'email',
+    '${email}',
+    NOW(),
+    NOW(),
+    NOW()
+)
+ON CONFLICT (provider_id, provider) DO NOTHING;
+
+-- 3. User profile 생성
+INSERT INTO user_profiles (
+    id,
+    organization_id,
+    email,
+    full_name,
+    role,
+    team_id,
+    is_active
+)
+VALUES (
+    '${uuid}',
+    '${profile.organization_id}',
+    '${email}',
+    '${input.fullName}',
+    '${input.role}',
+    ${input.teamId ? `'${input.teamId}'` : 'NULL'},
+    TRUE
+)
+ON CONFLICT (id) DO UPDATE SET
+    full_name = '${input.fullName}',
+    role = '${input.role}',
+    team_id = ${input.teamId ? `'${input.teamId}'` : 'NULL'},
+    is_active = TRUE;
+
+SELECT '✅ 계정 생성 완료! 로그인: ${input.username} / ${input.password}' AS result;
+`;
+
+  return {
+    sql,
+    credentials: {
+      username: input.username,
+      password: input.password,
+      email,
+    },
+  };
+}
+
+// ============================================================================
+// Fetch All Permissions (for permission editor)
+// ============================================================================
+
+export interface PermissionDef {
+  id: string;
+  category: string;
+  name: string;
+  description: string | null;
+}
+
+export async function fetchAllPermissions(): Promise<PermissionDef[]> {
+  const data = await restGet<PermissionDef>('permissions', 'select=*&order=category,id');
+  return data;
+}
+

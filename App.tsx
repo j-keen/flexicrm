@@ -10,6 +10,7 @@ import { CustomerList } from './components/Pages/CustomerList';
 import { SettingsPage } from './components/Pages/SettingsPage';
 import { ReceptionManager } from './components/Pages/ReceptionManager';
 import { PublicLandingPage } from './components/Pages/PublicLandingPage';
+import { TeamMemberManagement } from './components/Admin/TeamMemberManagement';
 
 // Authenticated Route Wrapper
 const AuthenticatedRoutes: React.FC = () => {
@@ -38,6 +39,7 @@ const AuthenticatedRoutes: React.FC = () => {
       <Route element={<AppLayout />}>
         <Route path="/" element={<CustomerList />} />
         <Route path="/reception" element={<ReceptionManager />} />
+        <Route path="/team" element={<TeamMemberManagement />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
